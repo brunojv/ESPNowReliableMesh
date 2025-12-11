@@ -1,15 +1,12 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <vector>
-#include "Adafruit_SHTC3.h"
 #include "timerClass.h"
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  1800        /* Time ESP32 will go to sleep (in seconds) */
 
-// Yemp & Humedity sensor instance  
-Adafruit_SHTC3 shtc3 = Adafruit_SHTC3();
+
 timerClass timer1;
-timerClass timer2;
 
 // Expanded telemetry struct
 typedef struct struct_message {
@@ -34,7 +31,7 @@ typedef struct struct_message {
   float accel_y;       // acceleration Y
   float accel_z;       // acceleration Z
 } struct_message;
-sensors_event_t humidity, temp;
+
 struct_message myData;
 struct_message incomingData;
 
@@ -56,6 +53,18 @@ void rememberPacket(int packetId) {
   }
 }
 
+void addPeer(const uint8_t *mac) {
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, mac, 6);
+  peerInfo.channel = WiFi.channel();  // must match across all nodes
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) == ESP_OK) {
+    Serial.printf("Peer %02X:%02X:%02X:%02X:%02X:%02X added\n",
+      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  } else {
+    Serial.println("Failed to add peer");
+  }
+}
 
 
 // --- Receiver callback ---
@@ -121,18 +130,25 @@ void setup() {
   Serial.printf("Size of sender: %d\n", sizeof(myData.sender));
     
   esp_now_peer_info_t peerInfo = {};
-  uint8_t peerAddress[] = {0xCC, 0xBA, 0x97, 0x33, 0xCD, 0x64}; // your target MAC
-  //uint8_t peerAddress[] = {0x94, 0x54, 0xC5, 0x4D, 0xA5, 0xA0}; // your target MAC
+  //uint8_t peerAddress[] = {0xCC, 0xBA, 0x97, 0x33, 0xCD, 0x64}; // your target MAC
+  //uint8_t peerAddress[] = {0x94, 0x54, 0xC5, 0x4D, 0xA5, 0xA1}; // your target MAC, original A0
+  //Node A
+  uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0};
+  uint8_t macC[] = {0x24,0x6F,0x28,0xAA,0xBB,0xCC};
+  addPeer(macB);
+  addPeer(macC);
 
-  memcpy(peerInfo.peer_addr, peerAddress, 6);  // copy 6 bytes into peerInfo.peer_addr
-  peerInfo.channel = 0;     // same WiFi channel
-  peerInfo.encrypt = false; // no encryption
-
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-  } else {
-    Serial.println("Peer added successfully");
-  }
+  /*Node B
+  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64};
+  uint8_t macC[] = {0x24,0x6F,0x28,0xAA,0xBB,0xCC};
+  addPeer(macA);
+  addPeer(macC);
+  //Node C
+  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64};
+  uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0};
+  addPeer(macA);
+  addPeer(macB);
+  */
 
   Serial.println(WiFi.macAddress());
   delay(4000);
@@ -140,30 +156,8 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 
   // Identify this node (change per board)
-  strcpy(myData.sender, "NodeB");  // Change to NodeB or NodeC
-
-  // Sensors init
-  //Temp & Humedity
-   Wire.begin(16, 17);
-
-  while (!Serial)
-    delay(10);     // will pause Zero, Leonardo, etc until serial console opens
-    Serial.println("SHTC3 test");
-    if (! shtc3.begin()) {
-      Serial.println("Couldn't find SHTC3");
-      delay(4000);
-  }
-  Serial.println("Found SHTC3 sensor");
-  // Wake up when GPIO 0 goes HIGH
-  //int result2 = esp_sleep_enable_ext0_wakeup(GPIO_NUM_32, 1);  
-  // Setup by timer
-  int result2 = esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);  
-  if (result2 == ESP_OK) {
-  Serial.println("Input Wake-Up set successfully as wake-up source.");
-  } 
-  else {
-  Serial.println("Failed to set Input Wake-Up as wake-up source.");
-  }
+  strcpy(myData.sender, "NodeA");  // Change to NodeB or NodeC
+  
 
 
 
@@ -175,8 +169,8 @@ void broadcastData() {
   myData.ttl = 2;  // allow up to 2 hops
 
   // Dummy sensor values (replace with real sensors later)
-  myData.temperature = temp.temperature;             // Sensor SHTC3
-  myData.humidity    = humidity.relative_humidity;   // Sensor SHTC3
+  myData.temperature = random(0, 40) / 10.0;;             // 0-40 C
+  myData.humidity    = random(0, 100) / 10.0;;   // 0 -100 %
   myData.km_runned   = random(0, 1000) / 10.0;    // 0–100 km
   myData.petro_spent = random(0, 500) / 10.0;     // 0–50 L
   myData.speed       = random(0, 120);            // 0–120 km/h
@@ -186,7 +180,7 @@ void broadcastData() {
   myData.accel_x     = random(-100, 100) / 10.0;
   myData.accel_y     = random(-100, 100) / 10.0;
   myData.accel_z     = random(-100, 100) / 10.0;
-
+  uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Broadcasting MAC
   // Broadcast packet
   esp_err_t result = esp_now_send(NULL, (uint8_t*)&myData, sizeof(myData));
   Serial.printf("Send result: %d\n", result);
@@ -196,35 +190,19 @@ void broadcastData() {
     Serial.println("Error broadcasting packet");
   }
 
-  
 
 }
 
 // --- Loop ---
 void loop() {
   bool timer1Done;
-  bool timer2Done;
-
   
-
-
-  timer2Done = timer2.timer_LOOP(true, 5000);
-  if (timer2Done){
-    shtc3.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
-    //myData.temperature = temp.temperature;
-    //myData.humidity = humidity.relative_humidity;
-    Serial.print("Temperature: "); Serial.print(temp.temperature); Serial.println(" degrees C");
-    Serial.print("Humidity: "); Serial.print(humidity.relative_humidity); Serial.println("% rH");
-       
+  timer1Done = timer1.timer_LOOP(true, 5000);
+  if (timer1Done){
+    
     //Loops
     broadcastData();
   }
 
-  timer1Done = timer1.timer_LOOP(true, 20000);
-  if (timer1Done) {
-  Serial.println("Getting Sleeping");
-  esp_deep_sleep_start();     // Enter light sleep
-  }
-  
   
 }
