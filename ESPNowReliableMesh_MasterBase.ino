@@ -66,7 +66,6 @@ void addPeer(const uint8_t *mac) {
   }
 }
 
-
 // --- Receiver callback ---
 void OnDataRecv(const esp_now_recv_info *recv_info, const uint8_t *incomingDataBytes, int len) {
   struct_message incomingData;
@@ -104,7 +103,6 @@ void OnDataRecv(const esp_now_recv_info *recv_info, const uint8_t *incomingDataB
   } else {
     Serial.println("Duplicate packet ignored");
   }
-
   
 
 }
@@ -132,31 +130,42 @@ void setup() {
   esp_now_peer_info_t peerInfo = {};
   //uint8_t peerAddress[] = {0xCC, 0xBA, 0x97, 0x33, 0xCD, 0x64}; // your target MAC
   //uint8_t peerAddress[] = {0x94, 0x54, 0xC5, 0x4D, 0xA5, 0xA1}; // your target MAC, original A0
-  //Node A
-  uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0};
-  uint8_t macC[] = {0x24,0x6F,0x28,0xAA,0xBB,0xCC};
+  
+  
+  //Node A: Waweshare 6DOR
+  String Nodename = "NodeA";
+  uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0}; //ESP Wroom in breadboard
+  uint8_t macC[] = {0x84,0xFC,0xE6,0x51,0x4E,0x3C}; // ESP-USB Dongle
   addPeer(macB);
   addPeer(macC);
-
-  /*Node B
-  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64};
-  uint8_t macC[] = {0x24,0x6F,0x28,0xAA,0xBB,0xCC};
+  
+  
+ /*
+  //Node B: ESP32S3 USB-Dongle
+  String  Nodename = "NodeB";
+  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64}; //Waweshare 6DOR
+  uint8_t macC[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0}; //ESP Wroom in breadboard
   addPeer(macA);
   addPeer(macC);
-  //Node C
-  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64};
-  uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0};
+  
+*/
+  /*
+
+  //Node C: ESP32-Wroom
+  String Nodename = "NodeC";   
+  uint8_t macA[] = {0xCC,0xBA,0x97,0x33,0xCD,0x64}; //Waweshare 6DOR
+  uint8_t macB[] = {0x84,0xFC,0xE6,0x51,0x4E,0x3C}; // ESP-USB Dongle
   addPeer(macA);
   addPeer(macB);
-  */
-
+  
+*/
   Serial.println(WiFi.macAddress());
   delay(4000);
 
   esp_now_register_recv_cb(OnDataRecv);
 
   // Identify this node (change per board)
-  strcpy(myData.sender, "NodeA");  // Change to NodeB or NodeC
+  strcpy(myData.sender, Nodename.c_str());  // NodeA, NodeB or NodeC
   
 
 

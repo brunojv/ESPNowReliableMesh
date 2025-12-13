@@ -1,6 +1,10 @@
 MacAddress ESP:
 
-Node B: 94:54:C5:4D:A5:A0
+Node C: 94:54:C5:4D:A5:A0  ESP WROOM 
 Node A: CC:BA:97:33:CD:64 (Waveshare 6DO)
-Node C: 94:54:C5:4D:BF:68
-Node D: 94:54:C5:4D:A7:FC
+Node B: 84:FC:E6:51:4E:3C  (ESP32S3-USB Dongle)
+ 
+
+Node D: 94:54:C5:4D:BF:68
+Node E: 94:54:C5:4D:A7:FC
+
