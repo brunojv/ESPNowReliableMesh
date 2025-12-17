@@ -1,12 +1,23 @@
+// Cork 17-12-2025
+// ESp32S3-GEEK with LCD version 1.0
+// Show one selection of the sensors data on the LCD
+
 #include <WiFi.h>
 #include <esp_now.h>
 #include <vector>
 #include "timerClass.h"
+#include "LCD_Driver.h"
+#include "GUI_Paint.h"
+#include "image.h"
+#include "Adafruit_SHTC3.h"
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  1800        /* Time ESP32 will go to sleep (in seconds) */
 
+// Yemp & Humedity sensor instance  
+Adafruit_SHTC3 shtc3 = Adafruit_SHTC3();
 
 timerClass timer1;
+timerClass timer2;
 
 // Expanded telemetry struct
 typedef struct struct_message {
@@ -32,6 +43,7 @@ typedef struct struct_message {
   float accel_z;       // acceleration Z
 } struct_message;
 
+sensors_event_t humidity, temp;
 struct_message myData;
 struct_message incomingData;
 
@@ -166,7 +178,30 @@ void setup() {
 
   // Identify this node (change per board)
   strcpy(myData.sender, Nodename.c_str());  // NodeA, NodeB or NodeC
-  
+  // Temp & Hum sensor init
+  // Sensors init
+  //Temp & Humedity
+   Wire.begin(16, 17);
+
+  while (!Serial)
+    delay(10);     // will pause Zero, Leonardo, etc until serial console opens
+    Serial.println("SHTC3 test");
+    if (! shtc3.begin()) {
+      Serial.println("Couldn't find SHTC3");
+      delay(4000);
+  }
+  Serial.println("Found SHTC3 sensor");
+
+  // LCD and Drawing init
+  Config_Init();
+  LCD_Init();
+  LCD_SetBacklight(100);
+  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 90, WHITE);
+  Paint_SetRotate(90);
+  LCD_Clear(BLACK);
+  Paint_DrawString_EN(20, 10, "LCD Initialized...", &Font20, BLACK, GREEN);
+  delay(2000);
+  LCD_Clear(BLACK);
 
 
 
@@ -178,9 +213,9 @@ void broadcastData() {
   myData.ttl = 2;  // allow up to 2 hops
 
   // Dummy sensor values (replace with real sensors later)
-  myData.temperature = random(0, 40) / 10.0;;             // 0-40 C
-  myData.humidity    = random(0, 100) / 10.0;;   // 0 -100 %
-  myData.km_runned   = random(0, 1000) / 10.0;    // 0–100 km
+  myData.temperature =  temp.temperature;             // Sensor SHTC3
+  myData.humidity    = humidity.relative_humidity;   // Sensor SHTC3
+  /*myData.km_runned   = random(0, 1000) / 10.0;    // 0–100 km
   myData.petro_spent = random(0, 500) / 10.0;     // 0–50 L
   myData.speed       = random(0, 120);            // 0–120 km/h
   myData.gps_lat     = 51.8985;                   // Example latitude
@@ -189,6 +224,7 @@ void broadcastData() {
   myData.accel_x     = random(-100, 100) / 10.0;
   myData.accel_y     = random(-100, 100) / 10.0;
   myData.accel_z     = random(-100, 100) / 10.0;
+  */
   uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Broadcasting MAC
   // Broadcast packet
   esp_err_t result = esp_now_send(NULL, (uint8_t*)&myData, sizeof(myData));
@@ -198,19 +234,45 @@ void broadcastData() {
   } else {
     Serial.println("Error broadcasting packet");
   }
-
-
+  Paint_DrawString_EN(20, 80, "Data Packet forw", &Font16, BLACK, GREEN);
+  delay(2000);
+  
 }
 
 // --- Loop ---
 void loop() {
   bool timer1Done;
-  
+  bool timer2Done;
+  String tempString;
+  String humedString;
+
   timer1Done = timer1.timer_LOOP(true, 5000);
   if (timer1Done){
     
     //Loops
     broadcastData();
+  }
+
+  timer2Done = timer2.timer_LOOP(true, 10000);
+  if (timer2Done){
+    
+    shtc3.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+    tempString = String(temp.temperature);
+    humedString = String(humidity.relative_humidity);
+    LCD_Clear(BLACK);
+    
+    Paint_DrawString_EN(20, 40, "Temp: ", &Font16, BLACK, GREEN);
+    Paint_DrawString_EN(80, 40, tempString.c_str(), &Font16, BLACK, GREEN);
+    Paint_DrawString_EN(140, 40, "C", &Font16, BLACK, GREEN);
+
+    Paint_DrawString_EN(20, 60, "Humd: ", &Font16, BLACK, GREEN);
+    Paint_DrawString_EN(80, 60, humedString.c_str(), &Font16, BLACK, GREEN);
+    Paint_DrawString_EN(140, 60,"%", &Font16, BLACK, GREEN);
+
+    Paint_DrawString_EN(20, 10, "                ", &Font16, BLACK, BLACK);
+
+    
+
   }
 
   
