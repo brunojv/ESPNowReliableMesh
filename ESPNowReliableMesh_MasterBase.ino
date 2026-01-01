@@ -1,3 +1,11 @@
+/*
+   Programmer: Bruno Villalobos
+   Version: R1.0
+   Description: ESP_NOW mesh with packet transmition check for duplicated and TTL, this is the repeater code and the base for the information sender's code.
+
+
+*/
+
 #include <WiFi.h>
 #include <esp_now.h>
 #include <vector>
@@ -30,7 +38,7 @@ typedef struct struct_message {
   float accel_x;       // acceleration X
   float accel_y;       // acceleration Y
   float accel_z;       // acceleration Z
-} struct_message;
+}struct_message;
 
 struct_message myData;
 struct_message incomingData;
@@ -112,7 +120,8 @@ void OnDataRecv(const esp_now_recv_info *recv_info, const uint8_t *incomingDataB
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
-
+  
+  // ESP_NOW init 
   esp_err_t espInitEstatus = esp_now_init();
   delay(100); // short pause after esp_now_init()
  
@@ -167,9 +176,6 @@ void setup() {
   // Identify this node (change per board)
   strcpy(myData.sender, Nodename.c_str());  // NodeA, NodeB or NodeC
   
-
-
-
 }
 
 // --- Broadcast telemetry ---
@@ -198,7 +204,6 @@ void broadcastData() {
   } else {
     Serial.println("Error broadcasting packet");
   }
-
 
 }
 
