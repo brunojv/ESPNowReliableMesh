@@ -1,12 +1,17 @@
-/*
-   Programmer: Bruno Villalobos
-   Version: R1.0
-   Description: ESP_NOW mesh with packet transmition check for duplicated and TTL, this is the repeater code and the base for the information sender's code.
 
-
-*/
+/*===========================================================================================================================
+[Program Name]             :ESPNowReliableMesh_MasterBase    
+[Catagory]                 :mRTU, General device communication for Master base, repeater or gateway
+[Description]              :ESPNow mesh with TTL and Package duplicate functionality with sensors for data colecting
+[Author]                   :Ing. Bruno Villalobos R.
+[Created using Arduino Ver :Arduino IDE 2.3.7
+[Support and FeedBack]     :   
+[Revison History]          :1.0 VersiOn Funcional, alfa 1   
+[Date - Change]            :02/01/2026
+===========================================================================================================================*/
 
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <esp_now.h>
 #include <vector>
 #include "timerClass.h"
@@ -64,8 +69,10 @@ void rememberPacket(int packetId) {
 void addPeer(const uint8_t *mac) {
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, mac, 6);
-  peerInfo.channel = WiFi.channel();  // must match across all nodes
+  
+  peerInfo.channel = 6; // MUST match the forced channel
   peerInfo.encrypt = false;
+  
   if (esp_now_add_peer(&peerInfo) == ESP_OK) {
     Serial.printf("Peer %02X:%02X:%02X:%02X:%02X:%02X added\n",
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -115,12 +122,15 @@ void OnDataRecv(const esp_now_recv_info *recv_info, const uint8_t *incomingDataB
 
 }
 
-
 // --- Setup ---
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
-  
+  // Force channel 6 (or any channel 1–13)
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+   
   // ESP_NOW init 
   esp_err_t espInitEstatus = esp_now_init();
   delay(100); // short pause after esp_now_init()
@@ -129,18 +139,16 @@ void setup() {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
+
+  // For troubleshooting 
   Serial.println (String(espInitEstatus));
   Serial.printf("Struct size: %d bytes\n", sizeof(myData));
   Serial.printf("Size of struct_message: %d\n", sizeof(struct_message));
   Serial.printf("Size of float: %d\n", sizeof(float));
   Serial.printf("Size of int: %d\n", sizeof(int));
   Serial.printf("Size of sender: %d\n", sizeof(myData.sender));
-    
-  esp_now_peer_info_t peerInfo = {};
-  //uint8_t peerAddress[] = {0xCC, 0xBA, 0x97, 0x33, 0xCD, 0x64}; // your target MAC
-  //uint8_t peerAddress[] = {0x94, 0x54, 0xC5, 0x4D, 0xA5, 0xA1}; // your target MAC, original A0
-  
-  
+     
+  //Adding peers 
   //Node A: Waweshare 6DOR
   String Nodename = "NodeA";
   uint8_t macB[] = {0x94,0x54,0xC5,0x4D,0xA5,0xA0}; //ESP Wroom in breadboard
@@ -171,6 +179,7 @@ void setup() {
   Serial.println(WiFi.macAddress());
   delay(4000);
 
+  // ESP_NOW call back function resgitering 
   esp_now_register_recv_cb(OnDataRecv);
 
   // Identify this node (change per board)
@@ -196,9 +205,11 @@ void broadcastData() {
   myData.accel_y     = random(-100, 100) / 10.0;
   myData.accel_z     = random(-100, 100) / 10.0;
   uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Broadcasting MAC
+  
   // Broadcast packet
   esp_err_t result = esp_now_send(NULL, (uint8_t*)&myData, sizeof(myData));
   Serial.printf("Send result: %d\n", result);
+  
   if (result == ESP_OK) {
     Serial.println("Broadcasted telemetry packet");
   } else {
